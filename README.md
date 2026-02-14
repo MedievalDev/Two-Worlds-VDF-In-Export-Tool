@@ -8,7 +8,7 @@ Convert 3D models between the proprietary `.vdf` format used by Two Worlds 1 and
 
 ## Tools
 
-### [VDF-to-OBJ Converter](vdf_to_obj/) — Export from Game
+### VDF-to-OBJ Converter (vdf_to_obj/) — Export from Game
 
 Extracts 3D models from TW1's `.vdf` files into `.obj + .mtl` for editing in any 3D application.
 
@@ -17,7 +17,7 @@ Extracts 3D models from TW1's `.vdf` files into `.obj + .mtl` for editing in any
 - Texture resolver (finds and copies DDS textures)
 - Multi-group export with full material data
 
-### [OBJ-to-VDF Converter](obj_to_vdf/) — Import into Game
+### OBJ-to-VDF Converter (obj_to_vdf/) — Import into Game
 
 Converts `.obj + .mtl` models back into `.vdf + .mtr` files that TW1 can load.
 
@@ -46,7 +46,7 @@ Both converters have been cross-validated against each other — a VDF exported 
 
 ## VDF Format Documentation
 
-See **[VDF_FORMAT.md](VDF_FORMAT.md)** for the complete reverse-engineered specification of the VDF/NTF binary format, including the node tree structure, vertex encoding, face buffer layout and shader properties. Useful if you want to build your own tools or parsers.
+See **VDF_FORMAT.md** for the complete reverse-engineered specification of the VDF/NTF binary format, including the node tree structure, vertex encoding, face buffer layout and shader properties. Useful if you want to build your own tools or parsers.
 
 ---
 
