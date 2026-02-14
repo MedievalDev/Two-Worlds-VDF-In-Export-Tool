@@ -1,0 +1,347 @@
+================================================================================
+TW1 VDF CONVERTER — VOLLSTÄNDIGE TECHNISCHE DOKUMENTATION
+================================================================================
+Erstellt: 13.02.2026
+Zweck: Handoff-Dokument für neuen Chat — enthält alles über das VDF-Format
+       und den existierenden VDF-to-OBJ Converter v1.1.
+Nächstes Ziel: OBJ-to-VDF Converter (Reverse-Richtung) erstellen.
+================================================================================
+
+KONTEXT
+=======
+Marco baut Tools für Two Worlds 1 (2007, Reality Pump Studios) Modding.
+Es existiert bereits ein funktionierender VDF-to-OBJ Converter v1.1 (Python,
+~1030 Zeilen, Tkinter GUI + CLI). Dieses Dokument beschreibt das vollständige
+reverse-engineerte VDF/NTF-Format, damit ein OBJ-to-VDF Converter gebaut
+werden kann.
+
+Die extrahierten Game-Dateien liegen in:
+  C:/Users/marco/Desktop/WDFiles/Graphics/
+    ├── Models/           ← VDF + MTR Dateien, sortiert in Unterordner
+    │   ├── ADDONS/
+    │   ├── Characters/
+    │   ├── DOORS/
+    │   ├── DUNGEON/
+    │   ├── Environment/
+    │   ├── Equipment/
+    │   ├── FENCES/
+    │   ├── FURNITURE/    ← z.B. FURNITURE/BAR/BAR_02/BAR_02_1.vdf
+    │   ├── Houses/
+    │   ├── INTERIORS/
+    │   ├── POTTERY/
+    │   ├── SPECIAL/
+    │   ├── STRUCTURES/
+    │   ├── TELEPORTS/
+    │   └── VEHICLES/
+    ├── Textures/         ← DDS-Texturen in Unterordnern (Trees/, Grasses/, etc.)
+    ├── Particles/
+    ├── Physic/
+    └── Scalers/
+
+Pro Modell gibt es:
+  - NAME.vdf          (Hauptmodell)
+  - NAME_LOD.vdf      (optional, LOD-Variante, weniger Polygone)
+  - NAME.mtr          (Material-Referenz, separates NTF-File — NICHT im OBJ enthalten)
+
+================================================================================
+NTF CONTAINER FORMAT (Node Tree Format)
+================================================================================
+Quelle: BugLord's Reverse-Engineering + eigene Ergänzungen.
+Referenz-HTML: ntf.html (BugLord's Doku, von uns erweitert mit Vertex-Specs)
+
+HEADER
+------
+Offset  Size  Type      Value
+0x00    4     uint32    0x9F9966F6  (Magic, little-endian gespeichert als F6 99 66 9F)
+                        Im Code als NTF_MAGIC = 0xF666999F (struct '<I' liest LE)
+
+NODE LIST
+---------
+Nach dem Header folgt eine rekursive Node-Liste bis EOF.
+
+Jeder Node beginnt mit:
+  Offset  Size  Type    Beschreibung
+  +0x00   1     uint8   Flag: 1 = Chunk (Datenblatt), 2 = Child Node List
+  +0x01   4     uint32  NodeSize (Bytes ab hier bis Node-Ende)
+
+FLAG 1 — CHUNK (Datenblatt):
+  +0x05   1     uint8   ChunkType (siehe Tabelle)
+  +0x06   4     uint32  NameLength
+  +0x0A   N     ascii   Name (z.B. "NumVertexes", "TexS0", "Vertexes")
+  danach: Payload je nach ChunkType
+
+  ChunkType  Datentyp       Payload
+  ─────────  ─────────────  ────────────────────────────────
+  17         int32          4 Bytes, signed   (Felder: Type, VertexFormat)
+  18         uint32         4 Bytes, unsigned (Felder: NumVertexes, NumFaces)
+  19         float32        4 Bytes           (Felder: Alpha, NearRange, FarRange)
+  20         vec4           16 Bytes (4×float) (Felder: SpecColor, DestColor)
+             vec4i          16 Bytes (4×int32) (Feld: LPos — Spezialfall, int statt float!)
+  21         mat4x4         64 Bytes (16×float)
+  22         string         Rest bis NodeEnd, ASCII
+  23         raw bytes      Rest bis NodeEnd, binär (Vertexes, Faces)
+
+FLAG 2 — CHILD NODE LIST:
+  +0x05   4     int32   ChildType (siehe Tabelle)
+  danach: rekursive Node-Liste bis NodeEnd
+
+  ChildType  Bedeutung
+  ─────────  ──────────────────────
+  -253       Shader/Material Node
+  -254       Mesh Group Node
+   5         Locator (PIVOT Point) — hat Felder IsLocator=1, LPos, LDir
+
+================================================================================
+VDF TREE STRUCTURE (typisches Modell)
+================================================================================
+
+Root (NTF)
+├── AniFileName: string (z.B. "ANKH_01.ani" — Animation-Referenz, kann leer sein)
+├── Child Type 5: LOCATOR
+│   ├── IsLocator: int32 = 1
+│   ├── LPos: vec4i [x, y, z, w] (Pivot-Position, ganzzahlig!)
+│   └── LDir: vec4 [dx, dy, dz, dw] (Richtung)
+│
+├── Child Type -254: MESH GROUP 1
+│   ├── Type: int32 = 1              ← Mesh-Marker
+│   ├── Name: string
+│   ├── VertexFormat: int32 = 1      ← Format der Vertex-Daten
+│   ├── NumVertexes: uint32          ← Anzahl Vertices
+│   ├── NumFaces: uint32             ← Anzahl Face-Indices (NICHT Dreiecke!)
+│   ├── Vertexes: raw bytes          ← Vertex-Daten (NumVertexes × stride)
+│   ├── Faces: raw bytes             ← Index-Buffer (NumFaces × 2 Bytes)
+│   │
+│   └── Child Type -253: SHADER
+│       ├── Name: string (Material-Name, z.B. "EN_STONE_02")
+│       ├── ShaderName: string (z.B. "buildings_lmap")
+│       ├── TexS0: string (Diffuse-Textur, z.B. "EN_STONE_02.dds")
+│       ├── TexS1: string (Bump/Normal-Map, z.B. "EN_STONE_02f_BUMP.dds")
+│       ├── TexS2: string (Lightmap, z.B. "EN_STONE_02_L1.dds")
+│       ├── SpecColor: vec4 [r, g, b, exponent]
+│       ├── DestColor: vec4 [r, g, b, a]  ← Diffuse-Farbe
+│       ├── Alpha: float
+│       ├── NearRange: float
+│       └── FarRange: float
+│
+├── Child Type -254: MESH GROUP 2 (optional, weitere Gruppen)
+│   └── ... (selbe Struktur)
+│
+└── ... (weitere Mesh Groups oder Locators)
+
+WICHTIG: Ein VDF kann mehrere Mesh Groups haben (z.B. verschiedene Materialien).
+Jede Mesh Group hat ihren eigenen Shader-Child.
+
+================================================================================
+VERTEX FORMAT 1 (Bestätigt — das häufigste Format)
+================================================================================
+
+Stride: 36 Bytes pro Vertex
+
+Offset  Bytes  Type        Inhalt
+──────  ─────  ──────────  ────────────────────────────────────────
+0x00    12     3×float32   Position (X, Y, Z)
+0x0C    4      UBYTE4N     Normal (X, Y, Z, W) — gepackt!
+0x10    4      UBYTE4N     Tangent (X, Y, Z, W) — gepackt!
+0x14    8      2×float32   UV1 (U, V) — Diffuse + Bump Texturkoordinaten
+0x1C    8      2×float32   UV2 (U, V) — Lightmap Texturkoordinaten
+──────  ─────
+Total:  36
+
+UBYTE4N Decoding:
+  Jedes Byte → Normalisierter Float: (byte - 128) / 127.0
+  Ergibt Werte von -1.008 bis +1.0
+  4. Byte (W) wird für Normals/Tangents ignoriert (meist 255 = +1.0)
+
+UBYTE4N Encoding (für OBJ-to-VDF):
+  Float → Byte: clamp(round(float × 127.0 + 128), 0, 255)
+
+UV-Mapping:
+  UV1 (Offset 0x14) → TexS0 (Diffuse) und TexS1 (Bump) — teilen sich UV1
+  UV2 (Offset 0x1C) → TexS2 (Lightmap)
+
+HINWEIS: Es gibt möglicherweise weitere VertexFormats (0, 2, 3...) die wir
+noch nicht gesehen haben. Der aktuelle Converter hat einen generischen
+Fallback der nach Stride rät, aber VertexFormat=1 deckt den Großteil ab.
+
+================================================================================
+FACE INDEX BUFFER
+================================================================================
+
+Format: uint16 (2 Bytes pro Index), Triangle List
+NumFaces = Anzahl der INDICES, nicht der Dreiecke!
+Anzahl Dreiecke = NumFaces / 3
+
+Beispiel: NumFaces=2670 → 890 Dreiecke → 5340 Bytes Faces-Daten
+
+Indices sind 0-basiert und referenzieren in die Vertex-Liste.
+
+================================================================================
+SHADER / MATERIAL PROPERTIES
+================================================================================
+
+Texture Slots:
+  TexS0  →  Diffuse-Textur     (UV1)  z.B. "EN_STONE_02.dds"
+  TexS1  →  Bump/Normal-Map    (UV1)  z.B. "EN_STONE_02f_BUMP.dds"
+  TexS2  →  Lightmap           (UV2)  z.B. "EN_STONE_02_L1.dds"
+
+Farben:
+  DestColor: vec4 [R, G, B, A]  — Diffuse-Grundfarbe (0.0–1.0)
+  SpecColor: vec4 [R, G, B, Exp] — Specular + Exponent (Exp meist 16.0–64.0)
+
+Sonstige:
+  Alpha: float     — Transparenz
+  NearRange: float — Rendering-Distanz
+  FarRange: float  — Rendering-Distanz
+  ShaderName: str  — Engine-Shader (z.B. "buildings_lmap", "equipment_base")
+
+================================================================================
+MTR-DATEIEN (Material-Referenz, separates File)
+================================================================================
+
+MTR-Dateien sind AUCH NTF-Format (selber Header 0x9F9966F6).
+Sie liegen neben den VDF-Dateien (z.B. BAR_02.mtr neben BAR_02_1.vdf).
+Inhalt: Shader-Referenzen und Material-Properties.
+Diese werden vom VDF-to-OBJ Converter aktuell NICHT gelesen — die
+Material-Infos kommen direkt aus dem Shader-Child im VDF.
+Für OBJ-to-VDF könnte man die MTR-Datei optional mitschreiben.
+
+================================================================================
+EXISTIERENDER CONVERTER: VDF-to-OBJ v1.1
+================================================================================
+
+Datei: tw1_vdf_converter.py (~1030 Zeilen Python 3)
+Start: START_VDF_CONVERTER.bat
+
+Features:
+- NTF-Parser (komplett, alle Chunk-Types)
+- VertexFormat 1 Decoder + generischer Fallback
+- Multi-Group OBJ Export (mehrere Mesh-Gruppen pro VDF)
+- MTL Export mit Textur-Referenzen und Farben
+- LOD-Erkennung: NAME.vdf + NAME_LOD.vdf werden zusammengeführt
+- Rekursiver Ordner-Scan: Input = Models/ → scannt alle Unterordner
+- Ordnerstruktur-Spiegelung: Output behält dieselbe Hierarchie
+- Texture Resolver: Findet DDS aus WDFiles/Graphics/Textures/ rekursiv
+  und kopiert sie neben die OBJ-Dateien
+- Auto-Detect: Erkennt Textures-Ordner automatisch aus VDF-Pfad
+- Tkinter GUI (Dark Theme) + CLI-Modus
+
+GUI hat 3 Felder:
+  Input Folder:     z.B. WDFiles/Graphics/Models
+  Output Folder:    z.B. WDFiles/Graphics/Models/OBJ_Export (auto)
+  Textures Folder:  z.B. WDFiles/Graphics/Textures (auto-detect)
+
+Getestet mit:
+  EN_STONE_02_1.vdf → 555 Vertices, 890 Triangles, 4 Groups
+  ANKH_01 → erfolgreich in Blender importiert (Screenshot vorhanden)
+
+================================================================================
+BEISPIEL-DATEN AUS EN_STONE_02_1.VDF
+================================================================================
+
+Mesh Group "EN_STONE_02":
+  VertexFormat: 1
+  NumVertexes: 226
+  NumFaces: 984 (= 328 Dreiecke)
+  Stride: 36 Bytes → 226 × 36 = 8136 Bytes Vertex-Daten
+  Shader:
+    Name: "EN_STONE_02"
+    ShaderName: "buildings_lmap"
+    TexS0: "EN_STONE_02.dds"
+    TexS1: "EN_STONE_02f_BUMP.dds"
+    TexS2: "EN_STONE_02_L1.dds"
+    DestColor: [0.5, 0.5, 0.5, 1.0]
+    SpecColor: [0.5, 0.5, 0.5, 16.0]
+
+Locator (PIVOT):
+  IsLocator: 1
+  LPos: [0, 0, 0, 0]
+  LDir: [0.0, 0.0, 0.0, 0.0]
+
+================================================================================
+ZIEL: OBJ-TO-VDF CONVERTER
+================================================================================
+
+Was der neue Converter können soll:
+1. OBJ + MTL lesen (Vertices, Normals, UVs, Faces, Materials)
+2. Gültiges VDF schreiben im NTF-Format das TW1 laden kann
+3. Texture-Referenzen aus MTL → TexS0/TexS1/TexS2 Zuordnung
+4. Optional: LOD-Variante generieren (vereinfachtes Mesh)
+
+Kritische Punkte für den OBJ-to-VDF Writer:
+- NTF-Header: 0xF666999F (als uint32 LE) — MUSS am Anfang stehen
+- Jeder Node: Flag(1B) + Size(4B) + Payload
+- Size = Bytes ab NACH dem Size-Feld bis Node-Ende
+- Chunks: Flag=1, dann ChunkType(1B) + Name(LenPrefixed) + Payload
+- Children: Flag=2, dann ChildType(4B, signed int32) + rekursive Nodes
+- Strings: 4 Byte Length-Prefix (uint32) + ASCII ohne Null-Terminator
+- Vertex-Encoding: Position(3f) + Normal(UBYTE4N) + Tangent(UBYTE4N) + UV1(2f) + UV2(2f)
+- Face-Encoding: uint16 Triangle List
+- NumFaces = Anzahl INDICES (= Dreiecke × 3)
+
+Tree-Aufbau für ein neues VDF:
+  Root
+  ├── AniFileName: "" (leerer String, Chunk Type 22)
+  ├── Child Type 5: Locator
+  │   ├── IsLocator: 1 (Chunk Type 17)
+  │   ├── LPos: [0, 0, 0, 0] (Chunk Type 20, als int32!)
+  │   └── LDir: [0.0, 0.0, 0.0, 0.0] (Chunk Type 20, als float)
+  ├── Child Type -254: Mesh Group (pro OBJ-Group/Material)
+  │   ├── Type: 1 (Chunk Type 17)
+  │   ├── Name: "meshname" (Chunk Type 22)
+  │   ├── VertexFormat: 1 (Chunk Type 17)
+  │   ├── NumVertexes: N (Chunk Type 18)
+  │   ├── NumFaces: M (Chunk Type 18) — M = Dreiecke × 3!
+  │   ├── Vertexes: raw bytes (Chunk Type 23, N × 36 Bytes)
+  │   ├── Faces: raw bytes (Chunk Type 23, M × 2 Bytes)
+  │   └── Child Type -253: Shader
+  │       ├── Name: "material_name" (Chunk Type 22)
+  │       ├── ShaderName: "buildings_lmap" (Chunk Type 22)
+  │       ├── TexS0: "diffuse.dds" (Chunk Type 22)
+  │       ├── TexS1: "bump.dds" (Chunk Type 22)
+  │       ├── TexS2: "" (Chunk Type 22, leer wenn keine Lightmap)
+  │       ├── SpecColor: [0.5, 0.5, 0.5, 16.0] (Chunk Type 20)
+  │       ├── DestColor: [0.5, 0.5, 0.5, 1.0] (Chunk Type 20)
+  │       └── Alpha: 1.0 (Chunk Type 19)
+  └── (weitere Mesh Groups...)
+
+WICHTIG für den Writer:
+- Die NodeSize muss KORREKT sein (Bytes von nach Size bis Node-Ende)
+- Am einfachsten: Erst Payload in Buffer schreiben, dann Size berechnen
+- Reihenfolge der Chunks im Mesh-Node scheint egal zu sein
+- VertexFormat MUSS 1 sein (das einzige Format das wir sicher kennen)
+- LPos ist vec4 mit INT32 statt float — Spezialfall bei ChunkType 20!
+
+NTF BINARY WRITER PSEUDOCODE:
+  def write_chunk(buf, chunk_type, name, payload_bytes):
+      buf.write(b'\x01')           # Flag = Chunk
+      content = b''
+      content += struct.pack('<B', chunk_type)
+      content += struct.pack('<I', len(name)) + name.encode('ascii')
+      content += payload_bytes
+      buf.write(struct.pack('<I', len(content)))
+      buf.write(content)
+
+  def write_child_start(buf, child_type):
+      # Returns position to patch size later
+      buf.write(b'\x02')           # Flag = Child
+      size_pos = buf.tell()
+      buf.write(struct.pack('<I', 0))  # placeholder
+      buf.write(struct.pack('<i', child_type))
+      return size_pos
+
+  def patch_child_size(buf, size_pos):
+      end = buf.tell()
+      size = end - size_pos - 4    # Size = bytes after size field
+      buf.seek(size_pos)
+      buf.write(struct.pack('<I', size))
+      buf.seek(end)
+
+================================================================================
+STIL-VORGABEN FÜR DEN CODE
+================================================================================
+- Python 3.8+ kompatibel (keine walrus operator etc.)
+- Tkinter GUI mit Dark Theme (selber Stil wie VDF-to-OBJ Converter)
+- Gleiche BAT-Launcher-Struktur
+- Deutsche Kommentare OK, aber Code/Funktionsnamen auf Englisch
+- Marco will erst alles durchsprechen bevor Code geschrieben wird
+================================================================================
