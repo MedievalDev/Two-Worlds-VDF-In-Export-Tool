@@ -2,13 +2,37 @@
 
 **Modding tools for Two Worlds 1 (2007, Reality Pump Studios)**
 
-Convert 3D models between the proprietary `.vdf` format used by Two Worlds 1 and the standard `.obj` format supported by Blender, 3ds Max, Maya and other 3D software.
+A complete toolkit for working with Two Worlds 1 game assets — 3D models, shader data, and game parameters.
 
 ---
 
 ## Tools
 
-### VDF-to-OBJ Converter (vdf_to_obj/) — Export from Game
+### Blender VDF Plugin (io_scene_vdf/)
+
+Direct import/export of `.vdf` model files in Blender — no OBJ roundtrip needed.
+
+- Lossless shader preservation (stores full NTF tree, only updates mesh data on export)
+- Dual UV layer support: UV_Diffuse and UV_Lightmap
+- Auto-loads DDS textures from the same directory
+- Preserves tangent data, normal W component, FrameData, locators, animations
+- Byte-identical round-trip for unchanged meshes
+- Compatible with Blender 3.x through 5.0 (three-tier API fallback for normals)
+- 3D Viewport panel showing shader info and stored VDF status
+
+### NTF Editor (ntf_editor/)
+
+GUI editor for NTF/VDF binary files — inspect and modify the node tree, shaders, textures and chunk data.
+
+- Full NTF node tree visualization with type-based icons and color coding
+- Edit any chunk value directly (strings, ints, floats, vectors)
+- Shader Transplant — restore original shader data to an edited VDF after OBJ roundtrip
+- Texture overview, shader listing, file statistics
+- Find Chunk search across the entire node tree
+- Integrity verification
+- Supports all NTF file types: `.vdf`, `.bon`, `.vif`, `.d00`–`.d03`
+
+### VDF-to-OBJ Converter (vdf_to_obj/)
 
 Extracts 3D models from TW1's `.vdf` files into `.obj + .mtl` for editing in any 3D application.
 
@@ -17,7 +41,7 @@ Extracts 3D models from TW1's `.vdf` files into `.obj + .mtl` for editing in any
 - Texture resolver (finds and copies DDS textures)
 - Multi-group export with full material data
 
-### OBJ-to-VDF Converter (obj_to_vdf/) — Import into Game
+### OBJ-to-VDF Converter (obj_to_vdf/)
 
 Converts `.obj + .mtl` models back into `.vdf + .mtr` files that TW1 can load.
 
@@ -28,35 +52,49 @@ Converts `.obj + .mtl` models back into `.vdf + .mtr` files that TW1 can load.
 
 ---
 
-## Full Roundtrip Workflow
+## Recommended Workflows
+
+### Best: Blender Plugin (lossless)
 
 ```
-TW1 Game Files                          Your 3D Editor
+TW1 Game Files                              Blender
+─────────────                              ────────
+ SWORD_01.vdf ──► Blender Import ──► Edit mesh, UVs, materials
+                                     All shader data preserved
+                                              │
+ SWORD_01.vdf ◄── Blender Export ◄────────────┘
+                   (byte-identical shaders, updated mesh only)
+```
+
+### Alternative: OBJ Roundtrip + Shader Transplant
+
+```
+TW1 Game Files                          Any 3D Editor
 ─────────────                          ──────────────
- SWORD_01.vdf ──► VDF-to-OBJ ──► SWORD_01.obj ──► Edit in Blender
-                                  SWORD_01.mtl     Add textures, modify mesh
+ SWORD_01.vdf ──► VDF-to-OBJ ──► SWORD_01.obj ──► Edit in 3ds Max / Maya
+                                  SWORD_01.mtl     Modify mesh, add textures
                                                           │
  SWORD_01.vdf ◄── OBJ-to-VDF ◄── SWORD_01.obj ◄──────────┘
  SWORD_01.mtr                     SWORD_01.mtl
+                  │
+                  └──► NTF Editor (Shader Transplant)
+                       Restore original shader data from backup
 ```
-
-Both converters have been cross-validated against each other — a VDF exported to OBJ and re-imported back to VDF produces identical geometry and material data.
 
 ---
 
 ## VDF Format Documentation
 
-See **VDF_FORMAT.md** for the complete reverse-engineered specification of the VDF/NTF binary format, including the node tree structure, vertex encoding, face buffer layout and shader properties. Useful if you want to build your own tools or parsers.
+See **VDF_FORMAT.md** for the complete reverse-engineered specification of the VDF/NTF binary format, including the node tree structure, vertex encoding, face buffer layout and shader properties.
 
 ---
 
 ## Requirements
 
 - **Python 3.8+**
-- **Tkinter** (included with most Python installations) — required for GUI mode
+- **Tkinter** (included with most Python installations) — required for GUI tools
+- **Blender 3.0+** — required for the VDF plugin (tested up to Blender 5.0)
 - No additional pip packages needed
-
-Both tools work as standalone scripts. Each has a `.bat` launcher for Windows (double-click to start GUI) and supports command-line usage.
 
 ---
 
