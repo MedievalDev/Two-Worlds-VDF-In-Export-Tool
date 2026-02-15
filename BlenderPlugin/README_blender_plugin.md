@@ -17,7 +17,7 @@ A Blender addon for direct import/export of Two Worlds 1 `.vdf` model files with
 ## Installation
 
 1. Open Blender → Edit → Preferences → Add-ons
-2. Click "Install..." and select `io_scene_vdf.py`
+2. Click "Install..." and select `Blender_vdf_Plugin.py`
 3. Enable the checkbox next to "Import-Export: Two Worlds VDF Format"
 
 The addon adds entries to File → Import and File → Export.

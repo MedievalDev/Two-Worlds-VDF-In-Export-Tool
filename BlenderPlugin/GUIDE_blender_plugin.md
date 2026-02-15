@@ -2,7 +2,7 @@
 
 ## Installation
 
-1. Download `io_scene_vdf.py`
+1. Download `Blender_vdf_Plugin.py`
 2. Open Blender → Edit → Preferences → Add-ons
 3. Click **Install...** and select the file
 4. Enable the checkbox next to **Import-Export: Two Worlds VDF Format**
