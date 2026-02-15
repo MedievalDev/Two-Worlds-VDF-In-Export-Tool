@@ -15,7 +15,7 @@ A GUI editor for Two Worlds 1 NTF binary files — inspect and modify the intern
 - **Find Chunk** — search for any chunk by name across the entire node tree
 - **Integrity verification** — validates the NTF structure for corruption
 - **Multi-format support** — `
--
+
 - .mtr & .chm: Animation
 -	.vdf Models
 -	.chm
