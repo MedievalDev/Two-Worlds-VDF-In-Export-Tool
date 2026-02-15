@@ -16,12 +16,12 @@ A GUI editor for Two Worlds 1 NTF binary files — inspect and modify the intern
 - **Integrity verification** — validates the NTF structure for corruption
 - **Multi-format support** — `
 
-- .mtr & .chm: Animation
--	.vdf Models
--	.chm
--	.chv Model With Bones
--	.xfn Font Cache
--	.hor Horizon data
+.mtr & .chm: Animation
+.vdf Models
+.chm
+.chv Model With Bones
+.xfn Font Cache
+.hor Horizon data
 
 
 ## Quick Start
