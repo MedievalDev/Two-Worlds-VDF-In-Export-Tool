@@ -11,10 +11,12 @@
 File → Open (Ctrl+O)
 
 Supported file types:
-- `.vdf` — 3D model files (most common)
-- `.bon` — Skeleton/bone files
-- `.vif` — Vertex info files
-- `.d00` – `.d03` — Detail level variants
+-       .mtr & .chm: Animation
+-	.vdf Models
+-	.chm
+-	.chv Model With Bones
+-	.xfn Font Cache
+-	.hor Horizon data
 
 The editor parses the NTF binary tree and displays it in the left panel.
 
