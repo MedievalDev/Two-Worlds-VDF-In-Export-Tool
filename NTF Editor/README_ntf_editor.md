@@ -14,13 +14,11 @@ A GUI editor for Two Worlds 1 NTF binary files — inspect and modify the intern
 - **File statistics** — node counts, total chunks, mesh info
 - **Find Chunk** — search for any chunk by name across the entire node tree
 - **Integrity verification** — validates the NTF structure for corruption
-- **Multi-format support** — `
-
-.mtr & .chm: Animation
-.vdf Models
-.chm
-.chv Model With Bones
-.xfn Font Cache
+- **Multi-format support** — `.mtr & .chm: Animation,
+.vdf Models,
+.chm,
+.chv Model With Bones,
+.xfn Font Cache,
 .hor Horizon data
 
 
